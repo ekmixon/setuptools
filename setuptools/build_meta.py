@@ -111,11 +111,11 @@ def _file_with_extension(directory, extension):
 
 
 def _open_setup_script(setup_script):
-    if not os.path.exists(setup_script):
-        # Supply a default setup.py
-        return io.StringIO(u"from setuptools import setup; setup()")
-
-    return getattr(tokenize, 'open', open)(setup_script)
+    return (
+        getattr(tokenize, 'open', open)(setup_script)
+        if os.path.exists(setup_script)
+        else io.StringIO(u"from setuptools import setup; setup()")
+    )
 
 
 class _BuildMetaBackend(object):
@@ -171,8 +171,8 @@ class _BuildMetaBackend(object):
                           if f.endswith('.dist-info')]
 
             if (
-                len(dist_infos) == 0 and
-                len(_get_immediate_subdirectories(dist_info_directory)) == 1
+                not dist_infos
+                and len(_get_immediate_subdirectories(dist_info_directory)) == 1
             ):
 
                 dist_info_directory = os.path.join(

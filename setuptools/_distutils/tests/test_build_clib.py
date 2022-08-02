@@ -71,10 +71,14 @@ class BuildCLibTestCase(support.TempdirManager,
 
         pkg_dir, dist = self.create_dist()
         cmd = build_clib(dist)
+
+
         class FakeCompiler:
-            def compile(*args, **kw):
+            def compile(self, **kw):
                 pass
+
             create_static_lib = compile
+
 
         cmd.compiler = FakeCompiler()
 
@@ -82,7 +86,7 @@ class BuildCLibTestCase(support.TempdirManager,
         lib = [('name', {'sources': 'notvalid'})]
         self.assertRaises(DistutilsSetupError, cmd.build_libraries, lib)
 
-        lib = [('name', {'sources': list()})]
+        lib = [('name', {'sources': []})]
         cmd.build_libraries(lib)
 
         lib = [('name', {'sources': tuple()})]

@@ -186,10 +186,7 @@ class bdist_rpm(Command):
             self.rpm_base = os.path.join(self.bdist_base, "rpm")
 
         if self.python is None:
-            if self.fix_python:
-                self.python = sys.executable
-            else:
-                self.python = "python3"
+            self.python = sys.executable if self.fix_python else "python3"
         elif self.fix_python:
             raise DistutilsOptionError(
                   "--python and --fix-python are mutually exclusive options")
@@ -210,9 +207,11 @@ class bdist_rpm(Command):
 
     def finalize_package_data(self):
         self.ensure_string('group', "Development/Libraries")
-        self.ensure_string('vendor',
-                           "%s <%s>" % (self.distribution.get_contact(),
-                                        self.distribution.get_contact_email()))
+        self.ensure_string(
+            'vendor',
+            f"{self.distribution.get_contact()} <{self.distribution.get_contact_email()}>",
+        )
+
         self.ensure_string('packager')
         self.ensure_string_list('doc_files')
         if isinstance(self.doc_files, list):
@@ -226,7 +225,6 @@ class bdist_rpm(Command):
         self.ensure_string('distribution_name')
 
         self.ensure_string('changelog')
-          # Format changelog correctly
         self.changelog = self._format_changelog(self.changelog)
 
         self.ensure_filename('icon')
@@ -274,8 +272,7 @@ class bdist_rpm(Command):
 
         # Spec file goes into 'dist_dir' if '--spec-only specified',
         # build/rpm.<plat> otherwise.
-        spec_path = os.path.join(spec_dir,
-                                 "%s.spec" % self.distribution.get_name())
+        spec_path = os.path.join(spec_dir, f"{self.distribution.get_name()}.spec")
         self.execute(write_file,
                      (spec_path,
                       self._make_spec_file()),
@@ -288,10 +285,7 @@ class bdist_rpm(Command):
         # optional icon.
         saved_dist_files = self.distribution.dist_files[:]
         sdist = self.reinitialize_command('sdist')
-        if self.use_bzip2:
-            sdist.formats = ['bztar']
-        else:
-            sdist.formats = ['gztar']
+        sdist.formats = ['bztar'] if self.use_bzip2 else ['gztar']
         self.run_command('sdist')
         self.distribution.dist_files = saved_dist_files
 
@@ -316,10 +310,9 @@ class bdist_rpm(Command):
             rpm_cmd.append('-bb')
         else:
             rpm_cmd.append('-ba')
-        rpm_cmd.extend(['--define', '__python %s' % self.python])
+        rpm_cmd.extend(['--define', f'__python {self.python}'])
         if self.rpm3_mode:
-            rpm_cmd.extend(['--define',
-                             '_topdir %s' % os.path.abspath(self.rpm_base)])
+            rpm_cmd.extend(['--define', f'_topdir {os.path.abspath(self.rpm_base)}'])
         if not self.keep_temp:
             rpm_cmd.append('--clean')
 
@@ -332,7 +325,7 @@ class bdist_rpm(Command):
         # Note that some of these may not be really built (if the file
         # list is empty)
         nvr_string = "%{name}-%{version}-%{release}"
-        src_rpm = nvr_string + ".src.rpm"
+        src_rpm = f"{nvr_string}.src.rpm"
         non_src_rpm = "%{arch}/" + nvr_string + ".%{arch}.rpm"
         q_cmd = r"rpm -q --qf '%s %s\n' --specfile '%s'" % (
             src_rpm, non_src_rpm, spec_path)
@@ -352,9 +345,8 @@ class bdist_rpm(Command):
                 if source_rpm is None:
                     source_rpm = l[0]
 
-            status = out.close()
-            if status:
-                raise DistutilsExecError("Failed to execute: %s" % repr(q_cmd))
+            if status := out.close():
+                raise DistutilsExecError(f"Failed to execute: {repr(q_cmd)}")
 
         finally:
             out.close()

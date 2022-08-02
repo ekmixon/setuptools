@@ -46,10 +46,7 @@ class PyDialog(Dialog):
         its name in the Control table, possibly initially disabled.
 
         Return the button, so that events can be associated"""
-        if active:
-            flags = 3 # Visible|Enabled
-        else:
-            flags = 1 # Visible
+        flags = 3 if active else 1
         return self.pushbutton(name, 180, self.h-27 , 56, 17, flags, title, next)
 
     def cancel(self, title, next, name = "Cancel", active = 1):
@@ -57,10 +54,7 @@ class PyDialog(Dialog):
         its name in the Control table, possibly initially disabled.
 
         Return the button, so that events can be associated"""
-        if active:
-            flags = 3 # Visible|Enabled
-        else:
-            flags = 1 # Visible
+        flags = 3 if active else 1
         return self.pushbutton(name, 304, self.h-27, 56, 17, flags, title, next)
 
     def next(self, title, next, name = "Next", active = 1):
@@ -68,10 +62,7 @@ class PyDialog(Dialog):
         its name in the Control table, possibly initially disabled.
 
         Return the button, so that events can be associated"""
-        if active:
-            flags = 3 # Visible|Enabled
-        else:
-            flags = 1 # Visible
+        flags = 3 if active else 1
         return self.pushbutton(name, 236, self.h-27, 56, 17, flags, title, next)
 
     def xbutton(self, name, title, next, xpos):
@@ -208,10 +199,9 @@ class bdist_msi(Command):
             if not target_version:
                 assert self.skip_build, "Should have already checked this"
                 target_version = '%d.%d' % sys.version_info[:2]
-            plat_specifier = ".%s-%s" % (self.plat_name, target_version)
+            plat_specifier = f".{self.plat_name}-{target_version}"
             build = self.get_finalized_command('build')
-            build.build_lib = os.path.join(build.build_base,
-                                           'lib' + plat_specifier)
+            build.build_lib = os.path.join(build.build_base, f'lib{plat_specifier}')
 
         log.info("installing to %s", self.bdist_dir)
         install.ensure_finalized()
@@ -245,16 +235,15 @@ class bdist_msi(Command):
         # in Add-Remove-Programs (APR)
         fullname = self.distribution.get_fullname()
         if self.target_version:
-            product_name = "Python %s %s" % (self.target_version, fullname)
+            product_name = f"Python {self.target_version} {fullname}"
         else:
-            product_name = "Python %s" % (fullname)
+            product_name = f"Python {fullname}"
         self.db = msilib.init_database(installer_name, schema,
                 product_name, msilib.gen_uuid(),
                 sversion, author)
         msilib.add_tables(self.db, sequence)
         props = [('DistVersion', version)]
-        email = metadata.author_email or metadata.maintainer_email
-        if email:
+        if email := metadata.author_email or metadata.maintainer_email:
             props.append(("ARPCONTACT", email))
         if metadata.url:
             props.append(("ARPURLINFOABOUT", metadata.url))

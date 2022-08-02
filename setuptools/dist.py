@@ -73,15 +73,11 @@ def read_pkg_file(self, file):
 
     def _read_field(name):
         value = msg[name]
-        if value == 'UNKNOWN':
-            return None
-        return value
+        return None if value == 'UNKNOWN' else value
 
     def _read_list(name):
         values = msg.get_all(name, None)
-        if values == []:
-            return None
-        return values
+        return None if values == [] else values
 
     self.metadata_version = StrictVersion(msg['metadata-version'])
     self.name = _read_field('name')
@@ -207,7 +203,7 @@ sequence = tuple, list
 
 def check_importable(dist, attr, value):
     try:
-        ep = pkg_resources.EntryPoint.parse('x=' + value)
+        ep = pkg_resources.EntryPoint.parse(f'x={value}')
         assert not ep.extras
     except (TypeError, ValueError, AttributeError, AssertionError) as e:
         raise DistutilsSetupError(
@@ -263,7 +259,7 @@ def check_extras(dist, attr, value):
 def _check_extra(extra, reqs):
     name, sep, marker = extra.partition(':')
     if marker and pkg_resources.invalid_marker(marker):
-        raise DistutilsSetupError("Invalid environment marker: " + marker)
+        raise DistutilsSetupError(f"Invalid environment marker: {marker}")
     list(pkg_resources.parse_requirements(reqs))
 
 
@@ -493,11 +489,7 @@ class Distribution(_Distribution):
 
         if getattr(self, 'extras_require', None):
             for extra in self.extras_require.keys():
-                # Since this gets called multiple times at points where the
-                # keys have become 'converted' extras, ensure that we are only
-                # truly adding extras we haven't seen before here.
-                extra = extra.split(':')[0]
-                if extra:
+                if extra := extra.split(':')[0]:
                     self.metadata.provides_extras.add(extra)
 
         self._convert_extras_requirements()
@@ -524,7 +516,7 @@ class Distribution(_Distribution):
         For a requirement, return the 'extras_require' suffix for
         that requirement.
         """
-        return ':' + str(req.marker) if req.marker else ''
+        return f':{str(req.marker)}' if req.marker else ''
 
     def _move_install_requirements_markers(self):
         """
@@ -546,11 +538,11 @@ class Distribution(_Distribution):
         self.install_requires = list(map(str, simple_reqs))
 
         for r in complex_reqs:
-            self._tmp_extras_require[':' + str(r.marker)].append(r)
-        self.extras_require = dict(
-            (k, [str(r) for r in map(self._clean_req, v)])
+            self._tmp_extras_require[f':{str(r.marker)}'].append(r)
+        self.extras_require = {
+            k: [str(r) for r in map(self._clean_req, v)]
             for k, v in self._tmp_extras_require.items()
-        )
+        }
 
     def _clean_req(self, req):
         """
@@ -658,7 +650,7 @@ class Distribution(_Distribution):
         return lowercase_opt
 
     # FIXME: 'Distribution._set_command_options' is too complex (14)
-    def _set_command_options(self, command_obj, option_dict=None):  # noqa: C901
+    def _set_command_options(self, command_obj, option_dict=None):    # noqa: C901
         """
         Set the options for 'command_obj' from 'option_dict'.  Basically
         this means copying elements of a dictionary ('option_dict') to
@@ -678,8 +670,7 @@ class Distribution(_Distribution):
             self.announce("  setting options for '%s' command:" % command_name)
         for (option, (source, value)) in option_dict.items():
             if DEBUG:
-                self.announce("    %s = %s (from %s)" % (option, value,
-                                                         source))
+                self.announce(f"    {option} = {value} (from {source})")
             try:
                 bool_opts = [translate_longopt(o)
                              for o in command_obj.boolean_options]
@@ -789,8 +780,7 @@ class Distribution(_Distribution):
             ep.require(installer=self.fetch_build_egg)
             self.cmdclass[command] = cmdclass = ep.load()
             return cmdclass
-        else:
-            return _Distribution.get_command_class(self, command)
+        return _Distribution.get_command_class(self, command)
 
     def print_commands(self):
         for ep in pkg_resources.iter_entry_points('distutils.commands'):
@@ -824,8 +814,7 @@ class Distribution(_Distribution):
         handle whatever special inclusion logic is needed.
         """
         for k, v in attrs.items():
-            include = getattr(self, '_include_' + k, None)
-            if include:
+            if include := getattr(self, f'_include_{k}', None):
                 include(v)
             else:
                 self._include_misc(k, v)
@@ -833,7 +822,7 @@ class Distribution(_Distribution):
     def exclude_package(self, package):
         """Remove packages, modules, and extensions in named package"""
 
-        pfx = package + '.'
+        pfx = f'{package}.'
         if self.packages:
             self.packages = [
                 p for p in self.packages
@@ -855,7 +844,7 @@ class Distribution(_Distribution):
     def has_contents_for(self, package):
         """Return true if 'exclude_package(package)' would do something"""
 
-        pfx = package + '.'
+        pfx = f'{package}.'
 
         for p in self.iter_distribution_names():
             if p == package or p.startswith(pfx):
@@ -870,13 +859,12 @@ class Distribution(_Distribution):
         try:
             old = getattr(self, name)
         except AttributeError as e:
-            raise DistutilsSetupError(
-                "%s: No such distribution setting" % name
-            ) from e
+            raise DistutilsSetupError(f"{name}: No such distribution setting") from e
         if old is not None and not isinstance(old, sequence):
             raise DistutilsSetupError(
-                name + ": this setting cannot be changed via include/exclude"
+                f"{name}: this setting cannot be changed via include/exclude"
             )
+
         elif old:
             setattr(self, name, [item for item in old if item not in value])
 
@@ -890,15 +878,14 @@ class Distribution(_Distribution):
         try:
             old = getattr(self, name)
         except AttributeError as e:
-            raise DistutilsSetupError(
-                "%s: No such distribution setting" % name
-            ) from e
+            raise DistutilsSetupError(f"{name}: No such distribution setting") from e
         if old is None:
             setattr(self, name, value)
         elif not isinstance(old, sequence):
             raise DistutilsSetupError(
-                name + ": this setting cannot be changed via include/exclude"
+                f"{name}: this setting cannot be changed via include/exclude"
             )
+
         else:
             new = [item for item in value if item not in old]
             setattr(self, name, old + new)
@@ -920,8 +907,7 @@ class Distribution(_Distribution):
         handle whatever special exclusion logic is needed.
         """
         for k, v in attrs.items():
-            exclude = getattr(self, '_exclude_' + k, None)
-            if exclude:
+            if exclude := getattr(self, f'_exclude_{k}', None):
                 exclude(v)
             else:
                 self._exclude_misc(k, v)
@@ -1002,12 +988,8 @@ class Distribution(_Distribution):
     def iter_distribution_names(self):
         """Yield all packages, modules, and extension names in distribution"""
 
-        for pkg in self.packages or ():
-            yield pkg
-
-        for module in self.py_modules or ():
-            yield module
-
+        yield from self.packages or ()
+        yield from self.py_modules or ()
         for ext in self.ext_modules or ():
             if isinstance(ext, tuple):
                 name, buildinfo = ext
@@ -1040,7 +1022,7 @@ class Distribution(_Distribution):
         # Print metadata in UTF-8 no matter the platform
         encoding = sys.stdout.encoding
         errors = sys.stdout.errors
-        newline = sys.platform != 'win32' and '\n' or None
+        newline = '\n' if sys.platform != 'win32' else None
         line_buffering = sys.stdout.line_buffering
 
         sys.stdout = io.TextIOWrapper(

@@ -42,10 +42,7 @@ def get_host_platform():
             return 'win-amd64'
         if '(arm)' in sys.version.lower():
             return 'win-arm32'
-        if '(arm64)' in sys.version.lower():
-            return 'win-arm64'
-        return sys.platform
-
+        return 'win-arm64' if '(arm64)' in sys.version.lower() else sys.platform
     # Set for cross builds explicitly
     if "_PYTHON_HOST_PLATFORM" in os.environ:
         return os.environ["_PYTHON_HOST_PLATFORM"]
@@ -69,7 +66,7 @@ def get_host_platform():
         # At least on Linux/Intel, 'machine' is the processor --
         # i386, etc.
         # XXX what about Alpha, SPARC, etc?
-        return  "%s-%s" % (osname, machine)
+        return f"{osname}-{machine}"
     elif osname[:5] == "sunos":
         if release[0] >= "5":           # SunOS 5 == Solaris 2
             osname = "solaris"
@@ -78,16 +75,15 @@ def get_host_platform():
             # bootstrap problem. We use a dict to get an error
             # if some suspicious happens.
             bitness = {2147483647:"32bit", 9223372036854775807:"64bit"}
-            machine += ".%s" % bitness[sys.maxsize]
-        # fall through to standard osname-release-machine representation
+            machine += f".{bitness[sys.maxsize]}"
+            # fall through to standard osname-release-machine representation
     elif osname[:3] == "aix":
         from .py38compat import aix_platform
         return aix_platform(osname, version, release)
     elif osname[:6] == "cygwin":
         osname = "cygwin"
         rel_re = re.compile (r'[\d.]+', re.ASCII)
-        m = rel_re.match(release)
-        if m:
+        if m := rel_re.match(release):
             release = m.group()
     elif osname[:6] == "darwin":
         import _osx_support, distutils.sysconfig
@@ -95,20 +91,19 @@ def get_host_platform():
                                         distutils.sysconfig.get_config_vars(),
                                         osname, release, machine)
 
-    return "%s-%s-%s" % (osname, release, machine)
+    return f"{osname}-{release}-{machine}"
 
 def get_platform():
-    if os.name == 'nt':
-        TARGET_TO_PLAT = {
-            'x86' : 'win32',
-            'x64' : 'win-amd64',
-            'arm' : 'win-arm32',
-        }
-        return TARGET_TO_PLAT.get(os.environ.get('VSCMD_ARG_TGT_ARCH')) or get_host_platform()
-    else:
+    if os.name != 'nt':
         return get_host_platform()
+    TARGET_TO_PLAT = {
+        'x86' : 'win32',
+        'x64' : 'win-amd64',
+        'arm' : 'win-arm32',
+    }
+    return TARGET_TO_PLAT.get(os.environ.get('VSCMD_ARG_TGT_ARCH')) or get_host_platform()
 
-def convert_path (pathname):
+def convert_path(pathname):
     """Return 'pathname' as a name that will work on the native filesystem,
     i.e. split it on '/' and put it back together again using the current
     directory separator.  Needed because filenames in the setup script are
@@ -129,30 +124,29 @@ def convert_path (pathname):
     paths = pathname.split('/')
     while '.' in paths:
         paths.remove('.')
-    if not paths:
-        return os.curdir
-    return os.path.join(*paths)
+    return os.path.join(*paths) if paths else os.curdir
 
 # convert_path ()
 
 
-def change_root (new_root, pathname):
+def change_root(new_root, pathname):
     """Return 'pathname' with 'new_root' prepended.  If 'pathname' is
     relative, this is equivalent to "os.path.join(new_root,pathname)".
     Otherwise, it requires making 'pathname' relative and then joining the
     two, which is tricky on DOS/Windows and Mac OS.
     """
-    if os.name == 'posix':
-        if not os.path.isabs(pathname):
-            return os.path.join(new_root, pathname)
-        else:
-            return os.path.join(new_root, pathname[1:])
-
-    elif os.name == 'nt':
+    if os.name == 'nt':
         (drive, path) = os.path.splitdrive(pathname)
         if path[0] == '\\':
             path = path[1:]
         return os.path.join(new_root, path)
+
+    elif os.name == 'posix':
+        return (
+            os.path.join(new_root, pathname[1:])
+            if os.path.isabs(pathname)
+            else os.path.join(new_root, pathname)
+        )
 
     else:
         raise DistutilsPlatformError("nothing known about platform '%s'" % os.name)
@@ -226,7 +220,7 @@ def _init_regex():
     _squote_re = re.compile(r"'(?:[^'\\]|\\.)*'")
     _dquote_re = re.compile(r'"(?:[^"\\]|\\.)*"')
 
-def split_quoted (s):
+def split_quoted(s):
     """Split a string up according to Unix shell-like rules for quotes and
     backslashes.  In short: words are delimited by spaces, as long as those
     spaces are not escaped by a backslash, or inside a quoted string.
@@ -272,7 +266,7 @@ def split_quoted (s):
                 raise RuntimeError("this can't happen (bad char '%c')" % s[end])
 
             if m is None:
-                raise ValueError("bad string (mismatched %s quotes?)" % s[end])
+                raise ValueError(f"bad string (mismatched {s[end]} quotes?)")
 
             (beg, end) = m.span()
             s = s[:beg] + s[beg+1:end-1] + s[end:]
@@ -287,7 +281,7 @@ def split_quoted (s):
 # split_quoted ()
 
 
-def execute (func, args, msg=None, verbose=0, dry_run=0):
+def execute(func, args, msg=None, verbose=0, dry_run=0):
     """Perform some action that affects the outside world (eg.  by
     writing to the filesystem).  Such actions are special because they
     are disabled by the 'dry_run' flag.  This method takes care of all
@@ -299,7 +293,7 @@ def execute (func, args, msg=None, verbose=0, dry_run=0):
     if msg is None:
         msg = "%s%r" % (func.__name__, args)
         if msg[-2:] == ',)':        # correct for singleton tuple
-            msg = msg[0:-2] + ')'
+            msg = msg[:-2] + ')'
 
     log.info(msg)
     if not dry_run:
@@ -322,7 +316,7 @@ def strtobool (val):
         raise ValueError("invalid truth value %r" % (val,))
 
 
-def byte_compile (py_files,
+def byte_compile(py_files,
                   optimize=0, force=0,
                   prefix=None, base_dir=None,
                   verbose=1, dry_run=0,
@@ -425,13 +419,8 @@ byte_compile(files, optimize=%r, force=%r,
         cmd.extend(_optim_args_from_interpreter_flags())
         cmd.append(script_name)
         spawn(cmd, dry_run=dry_run)
-        execute(os.remove, (script_name,), "removing %s" % script_name,
-                dry_run=dry_run)
+        execute(os.remove, (script_name,), f"removing {script_name}", dry_run=dry_run)
 
-    # "Direct" byte-compilation: use the py_compile module to compile
-    # right here, right now.  Note that the script generated in indirect
-    # mode simply calls 'byte_compile()' in direct mode, a weird sort of
-    # cross-process recursion.  Hey, it works!
     else:
         from py_compile import compile
 
@@ -528,9 +517,8 @@ def copydir_run_2to3(src, dest, template=None, fixer_names=None,
     filelist.files[:] = filelist.allfiles
     if template:
         for line in template.splitlines():
-            line = line.strip()
-            if not line: continue
-            filelist.process_template_line(line)
+            if line := line.strip():
+                filelist.process_template_line(line)
     copied = []
     for filename in filelist.files:
         outname = os.path.join(dest, filename)

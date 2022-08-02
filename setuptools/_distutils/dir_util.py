@@ -88,10 +88,7 @@ def create_tree(base_dir, files, mode=0o777, verbose=1, dry_run=0):
     'dry_run' flags are as for 'mkpath()'.
     """
     # First get the list of directories to create
-    need_dir = set()
-    for file in files:
-        need_dir.add(os.path.join(base_dir, os.path.dirname(file)))
-
+    need_dir = {os.path.join(base_dir, os.path.dirname(file)) for file in files}
     # Now create them
     for dir in sorted(need_dir):
         mkpath(dir, mode, verbose=verbose, dry_run=dry_run)
@@ -205,6 +202,6 @@ def ensure_relative(path):
     This is useful to make 'path' the second argument to os.path.join().
     """
     drive, path = os.path.splitdrive(path)
-    if path[0:1] == os.sep:
+    if path[:1] == os.sep:
         path = drive + path[1:]
     return path

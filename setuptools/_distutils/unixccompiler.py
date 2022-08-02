@@ -189,13 +189,7 @@ class UnixCCompiler(CCompiler):
                         while '=' in linker[i]:
                             i += 1
 
-                    if os.path.basename(linker[i]) == 'ld_so_aix':
-                        # AIX platforms prefix the compiler with the ld_so_aix
-                        # script, so we need to adjust our linker index
-                        offset = 1
-                    else:
-                        offset = 0
-
+                    offset = 1 if os.path.basename(linker[i]) == 'ld_so_aix' else 0
                     linker[i+offset] = self.compiler_cxx[i]
 
                 if sys.platform == 'darwin':
@@ -212,7 +206,7 @@ class UnixCCompiler(CCompiler):
     # ccompiler.py.
 
     def library_dir_option(self, dir):
-        return "-L" + dir
+        return f"-L{dir}"
 
     def _is_gcc(self, compiler_name):
         return "gcc" in compiler_name or "g++" in compiler_name
@@ -234,33 +228,30 @@ class UnixCCompiler(CCompiler):
         compiler = os.path.basename(sysconfig.get_config_var("CC"))
         if sys.platform[:6] == "darwin":
             # MacOSX's linker doesn't understand the -R flag at all
-            return "-L" + dir
+            return f"-L{dir}"
         elif sys.platform[:7] == "freebsd":
-            return "-Wl,-rpath=" + dir
+            return f"-Wl,-rpath={dir}"
         elif sys.platform[:5] == "hp-ux":
-            if self._is_gcc(compiler):
-                return ["-Wl,+s", "-L" + dir]
-            return ["+s", "-L" + dir]
+            return ["-Wl,+s", f"-L{dir}"] if self._is_gcc(compiler) else ["+s", f"-L{dir}"]
         else:
-            if self._is_gcc(compiler):
+            if not self._is_gcc(compiler):
+                # No idea how --enable-new-dtags would be passed on to
+                # ld if this system was using GNU ld.  Don't know if a
+                # system like this even exists.
+                return f"-R{dir}"
                 # gcc on non-GNU systems does not need -Wl, but can
                 # use it anyway.  Since distutils has always passed in
                 # -Wl whenever gcc was used in the past it is probably
                 # safest to keep doing so.
-                if sysconfig.get_config_var("GNULD") == "yes":
+            if sysconfig.get_config_var("GNULD") == "yes":
                     # GNU ld needs an extra option to get a RUNPATH
                     # instead of just an RPATH.
-                    return "-Wl,--enable-new-dtags,-R" + dir
-                else:
-                    return "-Wl,-R" + dir
+                return f"-Wl,--enable-new-dtags,-R{dir}"
             else:
-                # No idea how --enable-new-dtags would be passed on to
-                # ld if this system was using GNU ld.  Don't know if a
-                # system like this even exists.
-                return "-R" + dir
+                return f"-Wl,-R{dir}"
 
     def library_option(self, lib):
-        return "-l" + lib
+        return f"-l{lib}"
 
     def find_library_file(self, dirs, lib, debug=0):
         shared_f = self.library_filename(lib, lib_type='shared')
@@ -289,13 +280,7 @@ class UnixCCompiler(CCompiler):
             #   /usr/lib/libedit.dylib
             cflags = sysconfig.get_config_var('CFLAGS')
             m = re.search(r'-isysroot\s*(\S+)', cflags)
-            if m is None:
-                sysroot = '/'
-            else:
-                sysroot = m.group(1)
-
-
-
+            sysroot = '/' if m is None else m[1]
         for dir in dirs:
             shared = os.path.join(dir, shared_f)
             dylib = os.path.join(dir, dylib_f)

@@ -80,7 +80,9 @@ if not match_hostname:  # noqa: C901  # 'If 59' is too complex (21)  # FIXME
             # policy among SSL implementations showed it to be a
             # reasonable choice.
             raise CertificateError(
-                "too many wildcards in certificate DNS name: " + repr(dn))
+                f"too many wildcards in certificate DNS name: {repr(dn)}"
+            )
+
 
         # speed up common case w/o wildcards
         if not wildcards:
@@ -106,9 +108,7 @@ if not match_hostname:  # noqa: C901  # 'If 59' is too complex (21)  # FIXME
             pats.append(re.escape(leftmost).replace(r'\*', '[^.]*'))
 
         # add the remaining fragments, ignore any wildcards
-        for frag in remainder:
-            pats.append(re.escape(frag))
-
+        pats.extend(re.escape(frag) for frag in remainder)
         pat = re.compile(r'\A' + r'\.'.join(pats) + r'\Z', re.IGNORECASE)
         return pat.match(hostname)
 

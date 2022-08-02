@@ -83,11 +83,10 @@ class build_scripts(Command):
                 f.seek(0)
                 first_line = f.readline()
                 if not first_line:
-                    self.warn("%s is an empty file (skipping)" % script)
+                    self.warn(f"{script} is an empty file (skipping)")
                     continue
 
-                match = first_line_re.match(first_line)
-                if match:
+                if match := first_line_re.match(first_line):
                     adjust = True
                     post_interp = match.group(1) or b''
 
@@ -96,13 +95,15 @@ class build_scripts(Command):
                          self.build_dir)
                 updated_files.append(outfile)
                 if not self.dry_run:
-                    if not sysconfig.python_build:
-                        executable = self.executable
-                    else:
-                        executable = os.path.join(
+                    executable = (
+                        os.path.join(
                             sysconfig.get_config_var("BINDIR"),
-                           "python%s%s" % (sysconfig.get_config_var("VERSION"),
-                                           sysconfig.get_config_var("EXE")))
+                            f'python{sysconfig.get_config_var("VERSION")}{sysconfig.get_config_var("EXE")}',
+                        )
+                        if sysconfig.python_build
+                        else self.executable
+                    )
+
                     executable = os.fsencode(executable)
                     shebang = b"#!" + executable + post_interp + b"\n"
                     # Python parser starts to read a script using UTF-8 until
